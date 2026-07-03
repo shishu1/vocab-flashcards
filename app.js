@@ -24,6 +24,8 @@ let pendingImage = "";
 let pendingAudio = "";
 let touchStart = null;
 let suppressCardClickUntil = 0;
+let lastSpeakPointerAt = 0;
+let speechRequestId = 0;
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => Array.from(document.querySelectorAll(selector));
@@ -139,6 +141,8 @@ function wireEvents() {
 
   els.startReview.addEventListener("click", startReviewSession);
   els.flipCard.addEventListener("click", flipCard);
+  els.speakWord.addEventListener("pointerup", handleSpeakPointer);
+  els.speakWord.addEventListener("touchend", handleSpeakPointer);
   els.speakWord.addEventListener("click", handleSpeakClick);
   els.flashcard.addEventListener("click", handleCardClick);
   els.flashcard.addEventListener("touchstart", handleCardTouchStart, { passive: true });
@@ -344,24 +348,65 @@ function handleCardClick() {
   flipCard();
 }
 
-function handleSpeakClick(event) {
-  event.stopPropagation();
-  const card = review.queue[review.index];
-  if (card) speakCard(card, { force: true });
+function handleSpeakPointer(event) {
+  if (Date.now() - lastSpeakPointerAt < 350) {
+    event.preventDefault();
+    event.stopPropagation();
+    return;
+  }
+  lastSpeakPointerAt = Date.now();
+  requestSpeakFromEvent(event);
 }
 
-function speakCard(card, { force = false } = {}) {
-  if (!card?.front || !("speechSynthesis" in window) || !("SpeechSynthesisUtterance" in window)) return;
-  if (force || window.speechSynthesis.speaking || window.speechSynthesis.pending) {
-    window.speechSynthesis.cancel();
+function handleSpeakClick(event) {
+  if (Date.now() - lastSpeakPointerAt < 500 && event.detail !== 0) {
+    event.preventDefault();
+    event.stopPropagation();
+    return;
   }
+  requestSpeakFromEvent(event);
+}
+
+function requestSpeakFromEvent(event) {
+  event.preventDefault();
+  event.stopPropagation();
+  suppressCardClickUntil = Date.now() + 450;
+  const card = review.queue[review.index];
+  if (card) speakCard(card, { force: true, fromUser: true });
+}
+
+function speakCard(card, { force = false, fromUser = false } = {}) {
+  if (!card?.front) return;
+  if (!("speechSynthesis" in window) || !("SpeechSynthesisUtterance" in window)) {
+    if (fromUser) showToast("当前浏览器不支持系统朗读");
+    return;
+  }
+
+  const synth = window.speechSynthesis;
+  if (force || synth.speaking || synth.pending) {
+    stopSpeechIfActive(synth);
+  }
+
+  synth.resume?.();
+  const requestId = ++speechRequestId;
   const utterance = new SpeechSynthesisUtterance(card.front);
   utterance.lang = "en-US";
   utterance.rate = 0.86;
   utterance.pitch = 1;
   const voice = pickAmericanVoice();
   if (voice) utterance.voice = voice;
-  window.speechSynthesis.speak(utterance);
+  utterance.onerror = (event) => {
+    const ignoredErrors = new Set(["canceled", "interrupted"]);
+    if (fromUser && requestId === speechRequestId && !ignoredErrors.has(event.error)) {
+      showToast("朗读没有启动，请再点一次播放");
+    }
+  };
+  synth.speak(utterance);
+}
+
+function stopSpeechIfActive(synth) {
+  if (!synth.speaking && !synth.pending) return;
+  synth.cancel();
 }
 
 function pickAmericanVoice() {

@@ -251,6 +251,8 @@ textarea:focus {
   color: #ffffff;
   font-size: 15px;
   flex: 0 0 auto;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .speak-button:focus-visible {
