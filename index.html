@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>风电英语闪卡</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="./app-core.js"></script>
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Wind Power Vocabulary</p>
+          <h1>风电英语闪卡</h1>
+        </div>
+        <button class="icon-button" id="themeToggle" type="button" aria-label="切换明暗模式">◐</button>
+      </header>
+
+      <nav class="tabs" aria-label="主要视图">
+        <button class="tab is-active" type="button" data-view="reviewView">复习</button>
+        <button class="tab" type="button" data-view="libraryView">词库</button>
+        <button class="tab" type="button" data-view="statsView">统计</button>
+        <button class="tab" type="button" data-view="settingsView">设置</button>
+      </nav>
+
+      <main>
+        <section id="reviewView" class="view is-active">
+          <div class="review-toolbar">
+            <select id="deckFilter" aria-label="牌组筛选"></select>
+            <select id="tagFilter" aria-label="标签筛选"></select>
+            <button class="primary-button" id="startReview" type="button">开始复习</button>
+          </div>
+
+          <article class="flashcard" id="flashcard" tabindex="0">
+            <div class="card-status" id="cardStatus">等待开始</div>
+            <div class="media-slot" id="mediaSlot"></div>
+            <div class="card-text" id="cardText">导入 Excel 或添加卡片后开始复习</div>
+            <audio id="cardAudio" controls hidden></audio>
+          </article>
+
+          <div class="review-actions">
+            <button id="flipCard" class="secondary-button" type="button">显示答案</button>
+            <div class="confidence-grid" id="confidenceGrid" aria-label="自信度评分">
+              <button type="button" data-score="0">0</button>
+              <button type="button" data-score="1">1</button>
+              <button type="button" data-score="2">2</button>
+              <button type="button" data-score="3">3</button>
+              <button type="button" data-score="4">4</button>
+              <button type="button" data-score="5">5</button>
+            </div>
+          </div>
+        </section>
+
+        <section id="libraryView" class="view">
+          <div class="import-band">
+            <label class="file-picker action-tile">
+              <span class="action-title">导入 Excel</span>
+              <small>.xlsx / .xls / .csv</small>
+              <input id="excelInput" type="file" accept=".xlsx,.xls,.csv" />
+            </label>
+            <label class="file-picker action-tile">
+              <span class="action-title">导入牌组</span>
+              <small>JSON 备份</small>
+              <input id="bundleInput" type="file" accept=".json" />
+            </label>
+            <button id="exportJson" class="secondary-button action-tile" type="button">
+              <span class="action-title">导出 JSON</span>
+              <small>完整备份</small>
+            </button>
+            <button id="exportTsv" class="secondary-button action-tile" type="button">
+              <span class="action-title">导出 TSV</span>
+              <small>Anki 格式</small>
+            </button>
+          </div>
+
+          <form id="cardForm" class="editor">
+            <div class="field-row">
+              <label>
+                <span>牌组</span>
+                <input id="deckName" name="deckName" autocomplete="off" placeholder="风电词汇" />
+              </label>
+              <label>
+                <span>标签</span>
+                <input id="cardTags" name="tags" autocomplete="off" placeholder="运维,机组部件" />
+              </label>
+            </div>
+            <label>
+              <span>英文</span>
+              <textarea id="cardFront" name="front" rows="2" required></textarea>
+            </label>
+            <label>
+              <span>中文</span>
+              <textarea id="cardBack" name="back" rows="2" required></textarea>
+            </label>
+            <div class="field-row">
+              <label>
+                <span>图片</span>
+                <input id="imageInput" type="file" accept="image/*" />
+              </label>
+              <label>
+                <span>音频</span>
+                <input id="audioInput" type="file" accept="audio/*" />
+              </label>
+            </div>
+            <label>
+              <span>备注</span>
+              <input id="cardNotes" name="notes" autocomplete="off" />
+            </label>
+            <button class="primary-button" type="submit">保存卡片</button>
+          </form>
+
+          <div class="library-tools">
+            <input id="searchCards" type="search" placeholder="搜索词汇、释义、标签" />
+            <select id="libraryDeckFilter" aria-label="词库牌组筛选"></select>
+            <button id="deleteVisibleCards" class="danger-button" type="button">删除当前结果</button>
+          </div>
+          <div id="cardList" class="card-list"></div>
+        </section>
+
+        <section id="statsView" class="view">
+          <div class="metric-grid">
+            <div class="metric"><span>卡片</span><strong id="statTotal">0</strong></div>
+            <div class="metric"><span>到期</span><strong id="statDue">0</strong></div>
+            <div class="metric"><span>掌握</span><strong id="statMastered">0</strong></div>
+            <div class="metric"><span>正确率</span><strong id="statAccuracy">0%</strong></div>
+          </div>
+          <div class="chart-panel">
+            <h2>近 7 天复习量</h2>
+            <div id="weekChart" class="week-chart"></div>
+          </div>
+          <div class="session-panel">
+            <h2>最近会话</h2>
+            <div id="sessionList" class="session-list"></div>
+          </div>
+        </section>
+
+        <section id="settingsView" class="view">
+          <div class="settings-panel">
+            <label>
+              <span>主题</span>
+              <select id="themeSelect">
+                <option value="light">浅色</option>
+                <option value="dark">深色</option>
+              </select>
+            </label>
+            <label>
+              <span>强调色</span>
+              <input id="accentColor" type="color" value="#0f766e" />
+            </label>
+            <button id="resetDemo" class="secondary-button" type="button">载入示例词汇</button>
+            <button id="clearData" class="danger-button" type="button">清空本地数据</button>
+          </div>
+        </section>
+      </main>
+
+      <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    </div>
+
+    <script src="./app.js"></script>
+  </body>
+</html>
