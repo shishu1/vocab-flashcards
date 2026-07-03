@@ -8,6 +8,7 @@ This repository is designed for GitHub Pages. The app runs fully in the browser 
 
 ## Data
 
-- Import Excel files with columns named `中文`, `英文`, and `备注`.
+- Import Excel files with columns named `中文`, `英文`, `备注`, and optional `美式音标`.
+- Review cards show American phonetics and can read the current word aloud with the browser speech synthesis engine.
 - Export JSON backups from the app before changing devices or clearing browser data.
 - Import JSON backups on another browser to move the deck and progress.

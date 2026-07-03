@@ -37,6 +37,10 @@
             <div class="card-status" id="cardStatus">等待开始</div>
             <div class="media-slot" id="mediaSlot"></div>
             <div class="card-text" id="cardText">导入 Excel 或添加卡片后开始复习</div>
+            <div class="phonetic-bar" id="phoneticBar" hidden>
+              <button id="speakWord" class="speak-button" type="button" aria-label="播放读音">▶</button>
+              <span id="phoneticText"></span>
+            </div>
             <audio id="cardAudio" controls hidden></audio>
           </article>
 
@@ -93,6 +97,10 @@
             <label>
               <span>中文</span>
               <textarea id="cardBack" name="back" rows="2" required></textarea>
+            </label>
+            <label>
+              <span>美式音标</span>
+              <input id="cardPhonetic" name="phonetic" autocomplete="off" placeholder="/ˈroʊtər/" />
             </label>
             <div class="field-row">
               <label>

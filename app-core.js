@@ -6,6 +6,33 @@
   root.WindVocabCore = api;
 })(typeof globalThis !== "undefined" ? globalThis : window, function () {
   const DAY_MS = 24 * 60 * 60 * 1000;
+  const AMERICAN_PHONETICS = {
+    airfoil: "/ˈerfɔɪl/",
+    blade: "/bleɪd/",
+    "blade pitch": "/bleɪd pɪtʃ/",
+    "capacity factor": "/kəˈpæsəti ˈfæktər/",
+    chord: "/kɔːrd/",
+    "chord length": "/kɔːrd leŋθ/",
+    converter: "/kənˈvɜːrtər/",
+    curtailment: "/kɜːrˈteɪlmənt/",
+    feather: "/ˈfeðər/",
+    feathering: "/ˈfeðərɪŋ/",
+    gearbox: "/ˈɡɪrbɑːks/",
+    generator: "/ˈdʒenəreɪtər/",
+    hub: "/hʌb/",
+    nacelle: "/nəˈsel/",
+    "pitch angle": "/pɪtʃ ˈæŋɡəl/",
+    rotor: "/ˈroʊtər/",
+    "rotor blade": "/ˈroʊtər bleɪd/",
+    "rotor locking device": "/ˈroʊtər ˈlɑːkɪŋ dɪˈvaɪs/",
+    "rotor locking disk": "/ˈroʊtər ˈlɑːkɪŋ dɪsk/",
+    "rotor locking pin": "/ˈroʊtər ˈlɑːkɪŋ pɪn/",
+    "safety envelope": "/ˈseɪfti ˈenvəloʊp/",
+    tailing: "/ˈteɪlɪŋ/",
+    "tip speed": "/tɪp spiːd/",
+    "tip speed ratio": "/tɪp spiːd ˈreɪʃioʊ/",
+    "yaw system": "/jɔː ˈsɪstəm/",
+  };
 
   function createId(prefix) {
     if (typeof crypto !== "undefined" && crypto.randomUUID) {
@@ -50,15 +77,17 @@
     };
   }
 
-  function createCard({ deckId, front, back, tags = [], image = "", audio = "", notes = "" }) {
+  function createCard({ deckId, front, back, tags = [], image = "", audio = "", notes = "", phonetic = "" }) {
+    const cleanFront = cleanText(front);
     return {
       id: createId("card"),
       deckId,
-      front: cleanText(front),
+      front: cleanFront,
       back: cleanText(back),
       image,
       audio,
       notes: cleanText(notes),
+      phonetic: cleanText(phonetic) || lookupAmericanPhonetic(cleanFront),
       tags: Array.from(new Set(tags.map(cleanText).filter(Boolean))),
       interval: 0,
       ease: 2.5,
@@ -100,19 +129,21 @@
     const headerInfo = findVocabularyHeader(rows);
     if (!headerInfo) return [];
 
-    const { headerIndex, chineseIndex, englishIndex, notesIndex } = headerInfo;
+    const { headerIndex, chineseIndex, englishIndex, notesIndex, phoneticIndex } = headerInfo;
     return rows
       .slice(headerIndex + 1)
       .map((row) => {
         const front = cleanText(row?.[englishIndex]);
         const back = cleanText(row?.[chineseIndex]);
         const notes = notesIndex >= 0 ? cleanText(row?.[notesIndex]) : "";
+        const phonetic = phoneticIndex >= 0 ? cleanText(row?.[phoneticIndex]) : "";
         if (!front && !back) return null;
         return createCard({
           deckId,
           front,
           back,
           notes,
+          phonetic,
           tags: [sheetName],
         });
       })
@@ -144,9 +175,10 @@
       const chineseIndex = normalized.findIndex((cell) => ["中文", "汉语", "释义", "翻译"].includes(cell));
       const englishIndex = normalized.findIndex((cell) => ["英文", "英语", "english", "word", "term"].includes(cell));
       const notesIndex = normalized.findIndex((cell) => ["备注", "说明", "note", "notes", "comment"].includes(cell));
+      const phoneticIndex = normalized.findIndex((cell) => ["音标", "美式音标", "美式发音", "ipa", "phonetic", "pronunciation"].includes(cell));
 
       if (chineseIndex >= 0 && englishIndex >= 0) {
-        return { headerIndex: rowIndex, chineseIndex, englishIndex, notesIndex };
+        return { headerIndex: rowIndex, chineseIndex, englishIndex, notesIndex, phoneticIndex };
       }
     }
     return null;
@@ -283,6 +315,11 @@
     return deltaX < 0 ? "next" : "previous";
   }
 
+  function lookupAmericanPhonetic(term) {
+    const key = cleanText(term).toLowerCase();
+    return AMERICAN_PHONETICS[key] || "";
+  }
+
   return {
     createCard,
     parseVocabularyCell,
@@ -294,5 +331,6 @@
     cardsToAnkiTsv,
     deleteCardsByIds,
     detectHorizontalSwipe,
+    lookupAmericanPhonetic,
   };
 });

@@ -39,6 +39,9 @@ const els = {
   cardStatus: $("#cardStatus"),
   mediaSlot: $("#mediaSlot"),
   cardText: $("#cardText"),
+  phoneticBar: $("#phoneticBar"),
+  phoneticText: $("#phoneticText"),
+  speakWord: $("#speakWord"),
   cardAudio: $("#cardAudio"),
   flipCard: $("#flipCard"),
   confidenceGrid: $("#confidenceGrid"),
@@ -51,6 +54,7 @@ const els = {
   cardTags: $("#cardTags"),
   cardFront: $("#cardFront"),
   cardBack: $("#cardBack"),
+  cardPhonetic: $("#cardPhonetic"),
   imageInput: $("#imageInput"),
   audioInput: $("#audioInput"),
   cardNotes: $("#cardNotes"),
@@ -85,10 +89,24 @@ function init() {
 function loadState() {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
-    return saved ? { ...defaultState, ...JSON.parse(saved) } : structuredClone(defaultState);
+    return hydrateState(saved ? { ...defaultState, ...JSON.parse(saved) } : structuredClone(defaultState));
   } catch {
-    return structuredClone(defaultState);
+    return hydrateState(structuredClone(defaultState));
   }
+}
+
+function hydrateState(nextState) {
+  return {
+    ...nextState,
+    cards: hydrateCards(nextState.cards || []),
+  };
+}
+
+function hydrateCards(cards) {
+  return cards.map((card) => ({
+    ...card,
+    phonetic: card.phonetic || Core.lookupAmericanPhonetic(card.front),
+  }));
 }
 
 function saveState() {
@@ -121,6 +139,7 @@ function wireEvents() {
 
   els.startReview.addEventListener("click", startReviewSession);
   els.flipCard.addEventListener("click", flipCard);
+  els.speakWord.addEventListener("click", handleSpeakClick);
   els.flashcard.addEventListener("click", handleCardClick);
   els.flashcard.addEventListener("touchstart", handleCardTouchStart, { passive: true });
   els.flashcard.addEventListener("touchend", handleCardTouchEnd, { passive: true });
@@ -238,6 +257,8 @@ function renderReviewIdle() {
   els.cardStatus.textContent = `到期 ${due.length} / 总计 ${filteredCards({ includeFuture: true }).length}`;
   els.cardText.textContent = due.length ? "点击开始复习" : "当前筛选下没有到期卡片";
   els.mediaSlot.innerHTML = "";
+  els.phoneticBar.hidden = true;
+  els.phoneticText.textContent = "";
   els.cardAudio.hidden = true;
   els.flipCard.textContent = "显示答案";
 }
@@ -262,17 +283,18 @@ function startReviewSession() {
       tag: state.activeTag,
     },
   };
-  renderCurrentCard();
+  renderCurrentCard({ autoSpeak: true });
 }
 
-function renderCurrentCard() {
+function renderCurrentCard({ autoSpeak = false } = {}) {
   const card = review.queue[review.index];
   if (!card) {
     finishReviewSession();
     return;
   }
   els.cardStatus.textContent = `${review.index + 1} / ${review.queue.length}`;
-  els.cardText.innerHTML = review.flipped ? renderAnswer(card) : escapeHtml(card.front || "无英文词汇");
+  els.cardText.innerHTML = review.flipped ? renderAnswer(card) : renderPrompt(card);
+  renderPhonetic(card);
   els.mediaSlot.innerHTML = card.image ? `<img src="${card.image}" alt="">` : "";
   if (card.audio) {
     els.cardAudio.src = card.audio;
@@ -282,6 +304,23 @@ function renderCurrentCard() {
     els.cardAudio.hidden = true;
   }
   els.flipCard.textContent = review.flipped ? "隐藏答案" : "显示答案";
+  if (autoSpeak && !review.flipped) {
+    speakCard(card);
+  }
+}
+
+function renderPrompt(card) {
+  return `<div class="prompt-word">${escapeHtml(card.front || "无英文词汇")}</div>`;
+}
+
+function renderPhonetic(card) {
+  if (!card.phonetic) {
+    els.phoneticBar.hidden = true;
+    els.phoneticText.textContent = "";
+    return;
+  }
+  els.phoneticBar.hidden = false;
+  els.phoneticText.textContent = card.phonetic;
 }
 
 function renderAnswer(card) {
@@ -305,6 +344,31 @@ function handleCardClick() {
   flipCard();
 }
 
+function handleSpeakClick(event) {
+  event.stopPropagation();
+  const card = review.queue[review.index];
+  if (card) speakCard(card, { force: true });
+}
+
+function speakCard(card, { force = false } = {}) {
+  if (!card?.front || !("speechSynthesis" in window) || !("SpeechSynthesisUtterance" in window)) return;
+  if (force || window.speechSynthesis.speaking || window.speechSynthesis.pending) {
+    window.speechSynthesis.cancel();
+  }
+  const utterance = new SpeechSynthesisUtterance(card.front);
+  utterance.lang = "en-US";
+  utterance.rate = 0.86;
+  utterance.pitch = 1;
+  const voice = pickAmericanVoice();
+  if (voice) utterance.voice = voice;
+  window.speechSynthesis.speak(utterance);
+}
+
+function pickAmericanVoice() {
+  const voices = window.speechSynthesis?.getVoices?.() || [];
+  return voices.find((voice) => voice.lang === "en-US") || voices.find((voice) => voice.lang?.startsWith("en-")) || null;
+}
+
 function moveReviewCard(direction) {
   if (!review.queue.length) return;
   const nextIndex = direction === "next" ? review.index + 1 : review.index - 1;
@@ -314,7 +378,7 @@ function moveReviewCard(direction) {
   }
   review.index = nextIndex;
   review.flipped = false;
-  renderCurrentCard();
+  renderCurrentCard({ autoSpeak: true });
 }
 
 function handleCardTouchStart(event) {
@@ -419,9 +483,9 @@ async function handleBundleImport(event) {
 
 function mergeImported(imported) {
   state.decks = [...state.decks, ...(imported.decks || [])];
-  state.cards = [...state.cards, ...(imported.cards || [])];
+  state.cards = [...state.cards, ...hydrateCards(imported.cards || [])];
   state.sessions = [...(imported.sessions || []), ...state.sessions];
-  if (imported.settings?.accent && state.cards.length === imported.cards.length) {
+  if (imported.settings?.accent && state.cards.length === (imported.cards || []).length) {
     state.settings = { ...state.settings, ...imported.settings };
   }
   if (imported.decks?.[0]) state.activeDeckId = imported.decks[0].id;
@@ -442,6 +506,7 @@ async function handleCardSubmit(event) {
     front: els.cardFront.value,
     back: els.cardBack.value,
     tags,
+    phonetic: els.cardPhonetic.value,
     image: pendingImage,
     audio: pendingAudio,
     notes: els.cardNotes.value,
@@ -549,6 +614,7 @@ function loadCardIntoForm(cardId) {
   els.cardTags.value = (card.tags || []).join(",");
   els.cardFront.value = card.front || "";
   els.cardBack.value = card.back || "";
+  els.cardPhonetic.value = card.phonetic || "";
   els.cardNotes.value = card.notes || "";
   pendingImage = card.image || "";
   pendingAudio = card.audio || "";

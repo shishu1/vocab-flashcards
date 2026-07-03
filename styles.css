@@ -221,6 +221,39 @@ textarea:focus {
   overflow-wrap: anywhere;
 }
 
+.prompt-word {
+  width: 100%;
+}
+
+.phonetic-bar {
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: var(--muted);
+  font-size: clamp(16px, 4vw, 22px);
+  line-height: 1.35;
+}
+
+.speak-button {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent);
+  color: #ffffff;
+  font-size: 15px;
+  flex: 0 0 auto;
+}
+
+.speak-button:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--accent) 28%, transparent);
+  outline-offset: 2px;
+}
+
 .answer-block {
   display: grid;
   gap: 14px;
