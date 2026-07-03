@@ -236,6 +236,10 @@ textarea:focus {
   line-height: 1.35;
 }
 
+.phonetic-bar[hidden] {
+  display: none;
+}
+
 .speak-button {
   width: 38px;
   height: 38px;

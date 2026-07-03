@@ -31,6 +31,7 @@
     tailing: "/ˈteɪlɪŋ/",
     "tip speed": "/tɪp spiːd/",
     "tip speed ratio": "/tɪp spiːd ˈreɪʃioʊ/",
+    "wind turbine": "/wɪnd ˈtɜːrbaɪn/",
     "yaw system": "/jɔː ˈsɪstəm/",
   };
 
