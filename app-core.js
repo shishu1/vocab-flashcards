@@ -274,6 +274,15 @@
     };
   }
 
+  function detectHorizontalSwipe({ startX, startY, endX, endY, minDistance = 60, dominanceRatio = 1.4 }) {
+    const deltaX = Number(endX) - Number(startX);
+    const deltaY = Number(endY) - Number(startY);
+    if (!Number.isFinite(deltaX) || !Number.isFinite(deltaY)) return null;
+    if (Math.abs(deltaX) < minDistance) return null;
+    if (Math.abs(deltaX) < Math.abs(deltaY) * dominanceRatio) return null;
+    return deltaX < 0 ? "next" : "previous";
+  }
+
   return {
     createCard,
     parseVocabularyCell,
@@ -284,5 +293,6 @@
     buildStats,
     cardsToAnkiTsv,
     deleteCardsByIds,
+    detectHorizontalSwipe,
   };
 });

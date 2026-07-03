@@ -201,6 +201,7 @@ textarea:focus {
   grid-template-rows: auto minmax(80px, auto) 1fr auto;
   align-items: center;
   gap: 14px;
+  touch-action: pan-y;
 }
 
 .card-status {

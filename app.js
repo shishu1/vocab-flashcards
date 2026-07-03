@@ -22,6 +22,8 @@ let review = {
 };
 let pendingImage = "";
 let pendingAudio = "";
+let touchStart = null;
+let suppressCardClickUntil = 0;
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => Array.from(document.querySelectorAll(selector));
@@ -119,7 +121,9 @@ function wireEvents() {
 
   els.startReview.addEventListener("click", startReviewSession);
   els.flipCard.addEventListener("click", flipCard);
-  els.flashcard.addEventListener("click", flipCard);
+  els.flashcard.addEventListener("click", handleCardClick);
+  els.flashcard.addEventListener("touchstart", handleCardTouchStart, { passive: true });
+  els.flashcard.addEventListener("touchend", handleCardTouchEnd, { passive: true });
   els.confidenceGrid.addEventListener("click", (event) => {
     const button = event.target.closest("button[data-score]");
     if (button) rateCurrentCard(Number(button.dataset.score));
@@ -294,6 +298,49 @@ function flipCard() {
   if (!review.queue.length) return;
   review.flipped = !review.flipped;
   renderCurrentCard();
+}
+
+function handleCardClick() {
+  if (Date.now() < suppressCardClickUntil) return;
+  flipCard();
+}
+
+function moveReviewCard(direction) {
+  if (!review.queue.length) return;
+  const nextIndex = direction === "next" ? review.index + 1 : review.index - 1;
+  if (nextIndex < 0 || nextIndex >= review.queue.length) {
+    showToast(direction === "next" ? "已经是最后一张" : "已经是第一张");
+    return;
+  }
+  review.index = nextIndex;
+  review.flipped = false;
+  renderCurrentCard();
+}
+
+function handleCardTouchStart(event) {
+  const touch = event.changedTouches[0];
+  if (!touch) return;
+  touchStart = {
+    x: touch.clientX,
+    y: touch.clientY,
+  };
+}
+
+function handleCardTouchEnd(event) {
+  if (!touchStart) return;
+  const touch = event.changedTouches[0];
+  if (!touch) return;
+  const action = Core.detectHorizontalSwipe({
+    startX: touchStart.x,
+    startY: touchStart.y,
+    endX: touch.clientX,
+    endY: touch.clientY,
+  });
+  touchStart = null;
+  if (action) {
+    suppressCardClickUntil = Date.now() + 450;
+    moveReviewCard(action);
+  }
 }
 
 function rateCurrentCard(score) {
